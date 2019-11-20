@@ -103,14 +103,35 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
                 int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
                         ExifInterface.ORIENTATION_UNDEFINED);
 
-                if (mOptions.hasKey("width")) {
-                    mBitmap = resizeBitmap(mBitmap, mOptions.getInt("width"));
-                }
-
-                // Rotate the bitmap to the proper orientation if needed
                 boolean fixOrientation = mOptions.hasKey("fixOrientation")
                         && mOptions.getBoolean("fixOrientation")
                         && orientation != ExifInterface.ORIENTATION_UNDEFINED;
+
+                if (mOptions.hasKey("width")) {
+                    boolean willReorient = fixOrientation &&
+                            (orientation == ExifInterface.ORIENTATION_ROTATE_90
+                            || orientation == ExifInterface.ORIENTATION_ROTATE_270);
+
+                    int width = mBitmap.getWidth();
+                    int height = mBitmap.getHeight();
+                    int newWidth;
+                    int newHeight;
+
+                    /* As we resizing before rotating we should take width as height if it has wrong orientation*/
+                    if(willReorient) {
+                        newHeight = mOptions.getInt("width");
+                        float scaleRatio = (float) newHeight / (float) height;
+                        newWidth = (int) (width * scaleRatio);
+                    } else {
+                        newWidth = mOptions.getInt("width");
+                        float scaleRatio = (float) newWidth / (float) width;
+                        newHeight = (int) (height * scaleRatio);
+                    }
+
+                    mBitmap = resizeBitmap(mBitmap, newHeight, newWidth);
+                }
+
+                // Rotate the bitmap to the proper orientation if needed
                 if (fixOrientation) {
                     mBitmap = rotateBitmap(mBitmap, getImageRotation(orientation));
                 }
@@ -220,12 +241,8 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
         return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
     }
 
-    private Bitmap resizeBitmap(Bitmap bm, int newWidth) {
-        int width = bm.getWidth();
-        int height = bm.getHeight();
-        float scaleRatio = (float) newWidth / (float) width;
-
-        return Bitmap.createScaledBitmap(bm, newWidth, (int) (height * scaleRatio), true);
+    private Bitmap resizeBitmap(Bitmap bm, int newHeight, int newWidth) {
+        return Bitmap.createScaledBitmap(bm, newWidth, newHeight, true);
     }
 
     private Bitmap flipHorizontally(Bitmap source) {
